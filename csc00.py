@@ -55,6 +55,7 @@ import keras
 #cv2.destroyAllWindows() 
 
 img = cv2.imread('C:\\git\\comma-speed-challenge\\data\\frame1000.jpg',0) #C:\git\comma-speed-challenge\data
+cv2.imshow('image',img)
 imgc0 = img[0:350, 0:639]
 cv2.imshow('image',imgc0)
 
@@ -68,3 +69,5 @@ cv2.imshow('image',imgc2)
 
 imgc12 = np.concatenate((imgc1, imgc2), axis=1)
 cv2.imshow('image',imgc12)
+edges12 = cv2.Canny(imgc12,75,150)
+cv2.imshow('image',edges12)

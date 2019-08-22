@@ -75,11 +75,11 @@ def cv2_preprocess(row):
 def cv2_preprocess_tnsr_fcn(row):
   now=cv2.imread(row[1],0)
   now=now[100:350, 0:639]
-  now=cv2.Canny(now,75,150)
+  #now=cv2.Canny(now,75,150)
   
   prev=cv2.imread(row[0],0)
   prev=prev[100:350, 0:639]
-  prev=cv2.Canny(prev,75,150)
+  #prev=cv2.Canny(prev,75,150)
   
   flow = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
   

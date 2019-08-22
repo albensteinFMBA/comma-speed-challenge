@@ -59,17 +59,6 @@ def draw_flow(img, flow, step=16):
       cv2.circle(vis, (x1, y1), 1, (0, 255, 0), -1)
   return vis
 
-def cv2_preprocess_old(now,prev):
-  now=now[100:350, 0:639]
-  now=cv2.Canny(now,75,150)
-  
-  prev=prev[100:350, 0:639]
-  prev=cv2.Canny(prev,75,150)
-  
-  flow = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-  
-  return flow.astype('float32')
-  
 def cv2_preprocess(row):
   now=cv2.imread(row['path_now'].values[0],0)
   now=now[100:350, 0:639]
@@ -167,33 +156,6 @@ if __name__ == '__main__':
     cam.release() 
     cv2.destroyAllWindows() 
   "end 2]"
-  
-  "3] DEEVELOPING PREPROCESSING TECHNIQUE"
-  if False:
-    img1 = cv2.imread('C:\\git\\comma-speed-challenge\\data\\frame1001.jpg',0) #C:\git\comma-speed-challenge\data
-    imgc1 = img1[100:350, 0:639]
-    cv2.imshow('image',imgc1)
-    
-    img2 = cv2.imread('C:\\git\\comma-speed-challenge\\data\\frame1002.jpg',0) #C:\git\comma-speed-challenge\data
-    imgc2 = img2[100:350, 0:639]
-    cv2.imshow('image',imgc2)
-    
-    imgc12 = np.concatenate((imgc1, imgc2), axis=1)
-  
-    edges12 = cv2.Canny(imgc12,75,150)
-    cv2.imshow('image',edges12)
-    
-    flow12 = cv2.calcOpticalFlowFarneback(imgc1, imgc2, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-    cv2.imshow('flow', draw_flow(imgc2, flow12))
-    
-    cny1 = cv2.Canny(imgc1,75,150)
-    cny2 = cv2.Canny(imgc2,75,150)
-    flowCny12 = cv2.calcOpticalFlowFarneback(cny1, cny2, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-    cv2.imshow('flow', draw_flow(cny2, flowCny12))
-    
-    flow_func_test = cv2_preprocess_old(img1,img2)
-    cv2.imshow('flow', draw_flow(imgc2, flow_func_test))
-  "end 3]"
   
   "4] create data frame of file paths to an image, the previous image, and the average speed from each image"
   if False:

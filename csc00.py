@@ -9,14 +9,16 @@ from keras.models import Model
 from keras import backend as K
 
 def create_dframe():
-  images = [f for f in os.listdir('C:/git/comma-speed-challenge/data') if os.path.isfile(os.path.join('C:/git/comma-speed-challenge/data', f))]
+  #images = [f for f in os.listdir('C:/git/comma-speed-challenge/data') if os.path.isfile(os.path.join('C:/git/comma-speed-challenge/data', f))]
+  # that line above seems to not get a list of sequential file names, which is what i expected. 
+  # i know the file names, so i can just write the paths explcitly.
   path_prev = []
   path_now = []
   spd = np.load('Y_train.npy')
   spd_now = []
-  for i in np.arange(len(images)-1):
-    path_prev.append('C:\\git\\comma-speed-challenge\\data\\' + images[i])
-    path_now.append('C:\\git\\comma-speed-challenge\\data\\' + images[i+1])
+  for i in np.arange(20400-1):
+    path_prev.append('C:\\git\\comma-speed-challenge\\data\\frame' + str(i) + '.jpg')
+    path_now.append('C:\\git\\comma-speed-challenge\\data\\frame' + str(i+1) + '.jpg')
     spd_now.append(np.mean(np.array(spd[i],spd[i+1])))
   d={'path_prev':path_prev,'path_now':path_now,'spd':spd_now}
   df = pd.DataFrame(d,columns=['path_prev','path_now','spd'])
@@ -75,11 +77,11 @@ def cv2_preprocess(row):
 def cv2_preprocess_tnsr_fcn(row):
   now=cv2.imread(row[1],0)
   now=now[100:350, 0:639]
-  #now=cv2.Canny(now,75,150)
+  now=cv2.Canny(now,75,150)
   
   prev=cv2.imread(row[0],0)
   prev=prev[100:350, 0:639]
-  #prev=cv2.Canny(prev,75,150)
+  prev=cv2.Canny(prev,75,150)
   
   flow = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
   

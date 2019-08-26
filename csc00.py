@@ -24,6 +24,35 @@ def create_dframe():
   df = pd.DataFrame(d,columns=['path_prev','path_now','spd'])
   return df
 
+def generator_prototype(d,batch_size=100):
+  """
+  a naive generator for test the custom layer
+  eventually, I'll make a legit keras generator class
+  """
+  img4d = np.zeros([batch_size,480,640,2])# cooma speed challenge video frames are 480x640 pixels
+  spd = np.zeros(batch_size)
+  used_rows = []
+  high=d.shape[0]+1
+  if batch_size==2:
+    used_rows = [1000,1001]
+    img4d[0,:,:,0] = cv2.imread(d['path_prev'].iloc[used_rows[0]],0)
+    img4d[0,:,:,1] = cv2.imread(d['path_now'].iloc[used_rows[0]],0)
+    spd[0] = d['spd'].iloc[used_rows[0]]
+    img4d[0,:,:,0] = cv2.imread(d['path_prev'].iloc[used_rows[1]],0)
+    img4d[0,:,:,1] = cv2.imread(d['path_now'].iloc[used_rows[1]],0)
+    spd[1] = d['spd'].iloc[used_rows[1]]
+  else:
+    for i in np.arange(batch_size):
+      while True:
+        row_tmp = np.random.randint(0,high=high,size=[1],dtype='int')
+        if row_tmp not in used_rows:
+          break
+      used_rows.append(row_tmp[0])
+      img4d[i,:,:,0] = cv2.imread(d['path_prev'].iloc[row_tmp].values[0],0)
+      img4d[i,:,:,1] = cv2.imread(d['path_now'].iloc[row_tmp].values[0],0)
+      spd[i] = d['spd'].iloc[row_tmp].values[0]
+  return img4d, spd, used_rows
+
 def batch_shuffle(dframe):
   """
   Randomly shuffle pairs of rows in the dataframe, separates train and validation data
@@ -61,43 +90,23 @@ def draw_flow(img, flow, step=16):
       cv2.circle(vis, (x1, y1), 1, (0, 255, 0), -1)
   return vis
 
-def cv2_preprocess(row):
-  now=cv2.imread(row['path_now'].values[0],0)
-  now=now[100:350, 0:639]
-  now=cv2.Canny(now,75,150)
+def cv2_preprocess_tnsr_fcn(img3d):
+  now=img3d[:,:,0]
+  now=now[100:350, :]
+  #now=cv2.Canny(now,75,150)
   
-  prev=cv2.imread(row['path_prev'].values[0],0)
-  prev=prev[100:350, 0:639]
-  prev=cv2.Canny(prev,75,150)
-  
-  flow = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-  
-  return flow.astype('float32')
-
-def cv2_preprocess_tnsr_fcn(row):
-  now=cv2.imread(row[1],0)
-  now=now[100:350, 0:639]
-  now=cv2.Canny(now,75,150)
-  
-  prev=cv2.imread(row[0],0)
-  prev=prev[100:350, 0:639]
-  prev=cv2.Canny(prev,75,150)
+  prev=img3d[:,:,1]
+  prev=prev[100:350, :]
+  #prev=cv2.Canny(prev,75,150)
   
   flow = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
   
   return flow.astype('float32')
-
-def image_tensor_func(df) :
-  results = []
-  for index, row in df.iterrows():
-    flow_img = cv2_preprocess_tnsr_fcn(row)
-    results.append( np.expand_dims( flow_img, axis=0 ) )
-  return np.concatenate( results, axis = 0 )
 
 def image_tensor_func_o(img4d) :
     results = []
     for img3d in img4d :
-        rimg3d = image_func(img3d )
+        rimg3d = cv2_preprocess_tnsr_fcn(img3d )
         results.append( np.expand_dims( rimg3d, axis=0 ) )
     return np.concatenate( results, axis = 0 )
 
@@ -109,10 +118,10 @@ class CustomLayer( Layer ) :
                        stateful=False,
                        name='cvOpt')
     xout = K.stop_gradient( xout ) # explicitly set no grad
-    xout.set_shape( [xin.shape[0], 250, 639, xin.shape[-1]] ) # explicitly set output shape
+    xout.set_shape( [xin.shape[0], 250, 640, xin.shape[-1]] ) # explicitly set output shape
     return xout
   def compute_output_shape( self, sin ) :
-    return ( sin[0], 250, 639, sin[-1] )
+    return ( sin[0], 250, 640, sin[-1] )
 
 
 
@@ -179,68 +188,23 @@ if __name__ == '__main__':
   "end 4]"
   
   "5] test cv2_preprocess and image_tensor_func"
-  if False:
-    dfrow1 = d.iloc[[1000]].reset_index()
-    flow_test = cv2_preprocess(dfrow1)
-    now=cv2.imread(dfrow1['path_now'].values[0],0)
-    nowc = now[100:350, 0:639]
-    cv2.imshow('flow1', draw_flow(nowc, flow_test))
-    
-    dfrow2 = d.iloc[[1001]].reset_index()
-    flow_test2 = cv2_preprocess(dfrow2)
-    now2=cv2.imread(dfrow2['path_now'].values[0],0)
-    now2c = now[100:350, 0:639]
-    cv2.imshow('flow2', draw_flow(now2c, flow_test2))
-    
-  if False:  
-    dsml = d.iloc[[1000]]
-    results = []
-    for index, row in dsml.iterrows(): # this is a generator that produces data frame series, and not a single row dataframe
-      flow_img = cv2_preprocess_tnsr_fcn(row)
-      results.append( np.expand_dims( flow_img, axis=0 ) )
-    #print(np.concatenate( results, axis = 0 ))
-    
-  if False:  
-    dsml = d.iloc[1000:1002]
-    results = []
-    for index, row in dsml.iterrows(): # this is a generator that produces data frame series, and not a single row dataframe
-      flow_img = cv2_preprocess_tnsr_fcn(row)
-      print(flow_img.shape)
-      results.append( np.expand_dims( flow_img, axis=0 ) )
-    #print(np.concatenate( results, axis = 0 ))
-    print(results[0].shape)
-    
-  if True:
-    dsml = d.iloc[1000:1002]
-    tnsr_fcn_test = image_tensor_func(dsml)
-    #cv2.imshow('flow11', draw_flow(nowc, tnsr_fcn_test[0]))
-    #cv2.imshow('flow12', draw_flow(nowc, tnsr_fcn_test[1]))
+  "removed clutter"
   "end 5]"
   
   "6] create test network for testing custom layer"
   if True:
-    a = np.random.randn(2,100,200,3)
+    #a = np.random.randn(2,100,200,3)
+    img4d,spd,used_rows = generator_prototype(d,batch_size=3)
     #Layers
-    x = Input(shape=(None,None,3))
+    x = Input(shape=(480, 640, 2))
     y = CustomLayer(name='custom')(x)
     #Models
     model = Model( inputs=x, outputs=y )
     #print model.summary()
     #test
-    df_test = d.head(2)
-    b = model.predict(df_test)
+    b = model.predict(img4d)
+    now=cv2.imread(d['path_now'].iloc[used_rows[0]],0)
+    nowc = now[100:350, :]
+    cv2.imshow('CL1', draw_flow(nowc, b[0,]))
     
-    
-#class CustomLayer( Layer ) :
-#  def call( self, xin )  :
-#    xout = tf.py_func( image_tensor_func, 
-#                       [xin],
-#                       'float32',
-#                       stateful=False,
-#                       name='cvOpt')
-#    xout = K.stop_gradient( xout ) # explicitly set no grad
-#    xout.set_shape( [xin.shape[0], 250, 639, xin.shape[-1]] ) # explicitly set output shape
-#    return xout
-#  def compute_output_shape( self, sin ) :
-#    return ( sin[0], 250, 639, sin[-1] )
   

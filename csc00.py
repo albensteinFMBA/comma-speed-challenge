@@ -94,9 +94,16 @@ def image_tensor_func(df) :
     results.append( np.expand_dims( flow_img, axis=0 ) )
   return np.concatenate( results, axis = 0 )
 
+def image_tensor_func_o(img4d) :
+    results = []
+    for img3d in img4d :
+        rimg3d = image_func(img3d )
+        results.append( np.expand_dims( rimg3d, axis=0 ) )
+    return np.concatenate( results, axis = 0 )
+
 class CustomLayer( Layer ) :
   def call( self, xin )  :
-    xout = tf.py_func( image_tensor_func, 
+    xout = tf.py_func( image_tensor_func_o, 
                        [xin],
                        'float32',
                        stateful=False,
@@ -172,7 +179,7 @@ if __name__ == '__main__':
   "end 4]"
   
   "5] test cv2_preprocess and image_tensor_func"
-  if True:
+  if False:
     dfrow1 = d.iloc[[1000]].reset_index()
     flow_test = cv2_preprocess(dfrow1)
     now=cv2.imread(dfrow1['path_now'].values[0],0)
@@ -206,12 +213,13 @@ if __name__ == '__main__':
   if True:
     dsml = d.iloc[1000:1002]
     tnsr_fcn_test = image_tensor_func(dsml)
-    cv2.imshow('flow11', draw_flow(nowc, tnsr_fcn_test[0]))
-    cv2.imshow('flow12', draw_flow(nowc, tnsr_fcn_test[1]))
+    #cv2.imshow('flow11', draw_flow(nowc, tnsr_fcn_test[0]))
+    #cv2.imshow('flow12', draw_flow(nowc, tnsr_fcn_test[1]))
   "end 5]"
   
   "6] create test network for testing custom layer"
-  if False:
+  if True:
+    a = np.random.randn(2,100,200,3)
     #Layers
     x = Input(shape=(None,None,3))
     y = CustomLayer(name='custom')(x)
@@ -221,4 +229,18 @@ if __name__ == '__main__':
     #test
     df_test = d.head(2)
     b = model.predict(df_test)
+    
+    
+#class CustomLayer( Layer ) :
+#  def call( self, xin )  :
+#    xout = tf.py_func( image_tensor_func, 
+#                       [xin],
+#                       'float32',
+#                       stateful=False,
+#                       name='cvOpt')
+#    xout = K.stop_gradient( xout ) # explicitly set no grad
+#    xout.set_shape( [xin.shape[0], 250, 639, xin.shape[-1]] ) # explicitly set output shape
+#    return xout
+#  def compute_output_shape( self, sin ) :
+#    return ( sin[0], 250, 639, sin[-1] )
   

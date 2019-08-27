@@ -105,9 +105,13 @@ def cv2_preprocess_tnsr_fcn(img3d):
 
 def image_tensor_func_o(img4d) :
     results = []
-    for img3d in img4d :
-        rimg3d = cv2_preprocess_tnsr_fcn(img3d )
-        results.append( np.expand_dims( rimg3d, axis=0 ) )
+#    for img3d in img4d :
+#        rimg3d = cv2_preprocess_tnsr_fcn(img3d )
+#        results.append( np.expand_dims( rimg3d, axis=0 ) )
+#    return np.concatenate( results, axis = 0 )
+  
+    rimg3d = cv2_preprocess_tnsr_fcn(img4d[0,] )
+    results.append( np.expand_dims( rimg3d, axis=0 ) )
     return np.concatenate( results, axis = 0 )
 
 class CustomLayer( Layer ) :

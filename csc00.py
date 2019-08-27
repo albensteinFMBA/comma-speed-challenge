@@ -104,15 +104,18 @@ def cv2_preprocess_tnsr_fcn(img3d):
   return flow.astype('float32')
 
 def image_tensor_func_o(img4d) :
-    results = []
-#    for img3d in img4d :
-#        rimg3d = cv2_preprocess_tnsr_fcn(img3d )
-#        results.append( np.expand_dims( rimg3d, axis=0 ) )
-#    return np.concatenate( results, axis = 0 )
+  results = []
+  now=img4d[0,:,:,0]
+  now=now[100:350, :]
+  #now=cv2.Canny(now,75,150)
   
-    rimg3d = cv2_preprocess_tnsr_fcn(img4d[0,] )
-    results.append( np.expand_dims( rimg3d, axis=0 ) )
-    return np.concatenate( results, axis = 0 )
+  prev=img4d[0,:,:,1]
+  prev=prev[100:350, :]
+  #prev=cv2.Canny(prev,75,150)
+  
+  rimg3d = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+  results.append( np.expand_dims( rimg3d, axis=0 ) )
+  return np.concatenate( results, axis = 0 )
 
 class CustomLayer( Layer ) :
   def call( self, xin )  :

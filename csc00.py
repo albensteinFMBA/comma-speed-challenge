@@ -24,25 +24,52 @@ def create_dframe():
   df = pd.DataFrame(d,columns=['path_prev','path_now','spd'])
   return df
 
-def generator_train(d,batch_size=100):
+def generator_train(d,batch_size=100,gen_test_flg=False):
   """
   a naive generator for test the custom layer
   eventually, I'll make a legit keras generator class
   """
-  img4d = np.zeros([batch_size,480,640,2])# comma speed challenge video frames are 480x640 pixels
+  img4d = np.zeros([batch_size,250,640,2])# comma speed challenge video frames are 480x640 pixels
+  mag_max = 0.0 # max magnitude for batch normalization
   spd = np.zeros(batch_size)
   used_rows = []
   high=d.shape[0]+1
   for i in np.arange(batch_size):
-    while True:
-      row_tmp = np.random.randint(0,high=high,size=[1],dtype='int')
-      if row_tmp not in used_rows:
-        break
-    used_rows.append(row_tmp[0])
-    img4d[i,:,:,0] = cv2.imread(d['path_prev'].iloc[row_tmp].values[0],0)
-    img4d[i,:,:,1] = cv2.imread(d['path_now'].iloc[row_tmp].values[0],0)
-    spd[i] = d['spd'].iloc[row_tmp].values[0]
-  yield img4d, spd
+    if gen_test_flg:
+      row = i
+    else:
+      while True:
+        row_tmp = np.random.randint(0,high=high,size=[1],dtype='int')
+        if row_tmp not in used_rows:
+          row = row_tmp[0]
+          break
+    used_rows.append(row)
+    prev = cv2.imread(d['path_prev'].iloc[row],0)
+    now = cv2.imread(d['path_now'].iloc[row],0)
+    # crop
+    prev=prev[100:350, :]
+    now=now[100:350, :]
+    # edge detection
+    #prev=cv2.Canny(prev,75,150)
+    #now=cv2.Canny(now,75,150)
+    # compute optical flow
+    img4d[i,] = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+    # compute max magnitude and store if largest yet
+    y = img4d[i,:,:,0]
+    x = img4d[i,:,:,1]
+    mag=np.add(np.square(y),np.square(x))
+    if mag.max() > mag_max:
+      mag_max = mag.max()
+    # compute speed
+    spd[i] = d['spd'].iloc[row]
+      
+  # normalize over the batch
+  if mag_max > 0:
+    img4d = np.divide(img4d,mag_max)
+  else:
+    print('error: batch normalization magnitude not greater than 0')
+    
+  return img4d, spd
 
 def batch_shuffle(dframe):
   """
@@ -84,11 +111,12 @@ def draw_flow(img, flow, step=16):
 def crop_and_optical_flow(img4d) :
   results = []
   now=img4d[0,:,:,0]
-  now=now[100:350, :]
-  #now=cv2.Canny(now,75,150)
-  
   prev=img4d[0,:,:,1]
+  # crop
+  now=now[100:350, :]
   prev=prev[100:350, :]
+  
+  #now=cv2.Canny(now,75,150)
   #prev=cv2.Canny(prev,75,150)
   
   rimg3d = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
@@ -178,18 +206,10 @@ if __name__ == '__main__':
   
   "6] create test network for testing custom layer"
   if True:
-    #a = np.random.randn(2,100,200,3)
-    img4d,spd,used_rows = generator_train(d,batch_size=1)
-    #Layers
-    x = Input(shape=(480, 640, 2))
-    y = CustomLayer(name='custom')(x)
-    #Models
-    model = Model( inputs=x, outputs=y )
-    #print model.summary()
-    #test
-    b = model.predict(img4d)
-    now=cv2.imread(d['path_now'].iloc[used_rows[0]],0)
+    img4d,spd = generator_train(d,batch_size=1,gen_test_flg=True)
+
+    now=cv2.imread(d['path_now'].iloc[0],0)
     nowc = now[100:350, :]
-    cv2.imshow('CL1', draw_flow(nowc, b[0,]))
+    cv2.imshow('CL1', draw_flow(nowc, img4d[0,]))
     
   

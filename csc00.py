@@ -25,11 +25,12 @@ def create_dframe():
   df = pd.DataFrame(d,columns=['path_prev','path_now','spd'])
   return df
 
-def generator(d,batch_size=100):
+def generator(d,batch_size=None):
   """
-  a naive generator for test the custom layer
-  eventually, I'll make a legit keras generator class
+  generator: shuffle, read RGB images as greyscale, crop, detect edges, compute optical flow
   """
+  if batch_size is None:
+    batch_size = d.shape[0]
   img4d = np.zeros([batch_size,250,640,2])# comma speed challenge video frames are 480x640 pixels
   spd = np.zeros(batch_size)
   used_rows = []
@@ -54,27 +55,22 @@ def generator(d,batch_size=100):
     
   yield img4d, spd
 
-def batch_shuffle(dframe):
+def batch_shuffle(d,validation_split=0.2):
   """
-  Randomly shuffle pairs of rows in the dataframe, separates train and validation data
-  generates a uniform random variable 0->9, gives 20% chance to append to valid data, otherwise train_data
-  return tuple (train_data, valid_data) dataframes
+  Randomly split the data into training and validation sets
   """
   train_data = pd.DataFrame()
   valid_data = pd.DataFrame()
-  for i in range(len(dframe) - 1):
-    idx1 = np.random.randint(len(dframe) - 1)
-    idx2 = idx1 + 1
+  for i in range(len(d) - 1):
+    idx1 = np.random.randint(len(d) - 1)
+    row = d.iloc[[idx1]].reset_index()
     
-    row1 = dframe.iloc[[idx1]].reset_index()
-    row2 = dframe.iloc[[idx2]].reset_index()
-    
-    randInt = np.random.randint(9)
-    if 0 <= randInt <= 1:
-      valid_frames = [valid_data, row1, row2]
+    randInt = np.random.randint(100)
+    if 0 <= randInt <= 20:
+      valid_frames = [valid_data, row]
       valid_data = pd.concat(valid_frames, axis = 0, join = 'outer', ignore_index=False)
-    if randInt >= 2:
-      train_frames = [train_data, row1, row2]
+    if randInt >= 21:
+      train_frames = [train_data, row]
       train_data = pd.concat(train_frames, axis = 0, join = 'outer', ignore_index=False)
   return train_data, valid_data
 
@@ -189,13 +185,15 @@ if __name__ == '__main__':
   
   "6] create test network for testing custom layer"
   if False:
-    img4d,spd = generator_train(d,batch_size=1,gen_test_flg=True)
+    img4d,spd = generator(d,batch_size=1,gen_test_flg=True)
 
     now=cv2.imread(d['path_now'].iloc[0],0)
     nowc = now[100:350, :]
     cv2.imshow('CL1', draw_flow(nowc, img4d[0,]))
     
   "7] create baseline net"
+  if False:
+    train_data, valid_data = batch_shuffle(d)
   if True:
     model = Sequential()
     model.add(Conv2D(24, 5, 
@@ -216,7 +214,7 @@ if __name__ == '__main__':
  
   if True:
     clbkList = [EarlyStopping(monitor='loss', min_delta=0.4, patience=1, verbose=1)]
-    model.fit_generator(generator(d,batch_size=100), steps_per_epoch=1, epochs=1, verbose=1,callbacks=clbkList)
+    model.fit_generator(generator(train_data), steps_per_epoch=1, epochs=1, verbose=1,callbacks=clbkList)
     
   if False:
     model.evaluate()

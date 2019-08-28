@@ -49,8 +49,8 @@ def generator_train(d,batch_size=100,gen_test_flg=False):
     prev=prev[100:350, :]
     now=now[100:350, :]
     # edge detection
-    #prev=cv2.Canny(prev,75,150)
-    #now=cv2.Canny(now,75,150)
+    prev=cv2.Canny(prev,75,150)
+    now=cv2.Canny(now,75,150)
     # compute optical flow
     img4d[i,] = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
     

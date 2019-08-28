@@ -30,7 +30,6 @@ def generator_train(d,batch_size=100,gen_test_flg=False):
   eventually, I'll make a legit keras generator class
   """
   img4d = np.zeros([batch_size,250,640,2])# comma speed challenge video frames are 480x640 pixels
-  mag_max = 0.0 # max magnitude for batch normalization
   spd = np.zeros(batch_size)
   used_rows = []
   high=d.shape[0]+1
@@ -54,20 +53,6 @@ def generator_train(d,batch_size=100,gen_test_flg=False):
     #now=cv2.Canny(now,75,150)
     # compute optical flow
     img4d[i,] = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-    # compute max magnitude and store if largest yet
-    y = img4d[i,:,:,0]
-    x = img4d[i,:,:,1]
-    mag=np.add(np.square(y),np.square(x))
-    if mag.max() > mag_max:
-      mag_max = mag.max()
-    # compute speed
-    spd[i] = d['spd'].iloc[row]
-      
-  # normalize over the batch
-  if mag_max > 0:
-    img4d = np.divide(img4d,mag_max)
-  else:
-    print('error: batch normalization magnitude not greater than 0')
     
   return img4d, spd
 

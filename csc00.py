@@ -4,9 +4,10 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 import tensorflow as tf
-from keras.layers import Layer, Input, Conv2D, Lambda, Dense
-from keras.models import Model
+from keras.layers import Layer, Input, Conv2D, Lambda, Dense, Flatten
+from keras.models import Model, Sequential
 from keras import backend as K
+from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 def create_dframe():
   #images = [f for f in os.listdir('C:/git/comma-speed-challenge/data') if os.path.isfile(os.path.join('C:/git/comma-speed-challenge/data', f))]
@@ -24,7 +25,7 @@ def create_dframe():
   df = pd.DataFrame(d,columns=['path_prev','path_now','spd'])
   return df
 
-def generator_train(d,batch_size=100,gen_test_flg=False):
+def generator(d,batch_size=100):
   """
   a naive generator for test the custom layer
   eventually, I'll make a legit keras generator class
@@ -34,14 +35,11 @@ def generator_train(d,batch_size=100,gen_test_flg=False):
   used_rows = []
   high=d.shape[0]+1
   for i in np.arange(batch_size):
-    if gen_test_flg:
-      row = i
-    else:
-      while True:
-        row_tmp = np.random.randint(0,high=high,size=[1],dtype='int')
-        if row_tmp not in used_rows:
-          row = row_tmp[0]
-          break
+    while True:
+      row_tmp = np.random.randint(0,high=high,size=[1],dtype='int')
+      if row_tmp not in used_rows:
+        row = row_tmp[0]
+        break
     used_rows.append(row)
     prev = cv2.imread(d['path_prev'].iloc[row],0)
     now = cv2.imread(d['path_now'].iloc[row],0)
@@ -54,7 +52,7 @@ def generator_train(d,batch_size=100,gen_test_flg=False):
     # compute optical flow
     img4d[i,] = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
     
-  return img4d, spd
+  yield img4d, spd
 
 def batch_shuffle(dframe):
   """
@@ -190,11 +188,35 @@ if __name__ == '__main__':
   "end 5]"
   
   "6] create test network for testing custom layer"
-  if True:
+  if False:
     img4d,spd = generator_train(d,batch_size=1,gen_test_flg=True)
 
     now=cv2.imread(d['path_now'].iloc[0],0)
     nowc = now[100:350, :]
     cv2.imshow('CL1', draw_flow(nowc, img4d[0,]))
     
-  
+  "7] create baseline net"
+  if True:
+    model = Sequential()
+    model.add(Conv2D(24, 5, 
+                     strides=(5,5),
+                     input_shape=(250,640,2),
+                     data_format='channels_last',
+                     activation='relu'))
+    model.add(Conv2D(36, 5,
+                     strides=(5,5),
+                     data_format='channels_last',
+                     activation='relu'))
+    model.add(Flatten())
+    model.add(Dense(100, activation='relu', kernel_initializer='normal'))
+    model.add(Dense(50, activation='relu', kernel_initializer='normal'))
+    #model.add(Dropout(n_dropout))
+    model.add(Dense(1, kernel_initializer='normal'))
+    model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy'])
+ 
+  if True:
+    clbkList = [EarlyStopping(monitor='loss', min_delta=0.4, patience=1, verbose=1)]
+    model.fit_generator(generator(d,batch_size=100), steps_per_epoch=1, epochs=1, verbose=1,callbacks=clbkList)
+    
+  if False:
+    model.evaluate()

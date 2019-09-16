@@ -27,19 +27,29 @@ def generator(d,batch_size=None):
   """
   generator: shuffle, read RGB images as greyscale, crop, detect edges, compute optical flow
   """
+  while True:
+    for i in np.arange(d.shape[0]):
+      prev = cv2.imread(d['path_prev'].iloc[i],0)
+      now = cv2.imread(d['path_now'].iloc[i],0)
+      # crop to 250x640 to remove sky and dashboard
+      prev=prev[100:350, :]
+      now =now[100:350, :]
+      # edge detection
+      prev=cv2.Canny(prev,75,150)
+      now=cv2.Canny(now,75,150)
+      # compute optical flow
+      flow = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+      yield ({'input_1': flow}, {'output': d['spd'].iloc[i]})
+  
+def generate_np_array(d,batch_size=None):
+  """
+  read RGB images as greyscale, crop, detect edges, compute optical flow
+  """  
   if batch_size is None:
     batch_size = d.shape[0]
   img4d = np.zeros([batch_size,250,640,2])# comma speed challenge video frames are 480x640 pixels
   spd = np.zeros(batch_size)
-  used_rows = []
-  high=d.shape[0]+1
-  for i in np.arange(batch_size):
-    while True:
-      row_tmp = np.random.randint(0,high=high,size=[1],dtype='int')
-      if row_tmp not in used_rows:
-        row = row_tmp[0]
-        break
-    used_rows.append(row)
+  for row in np.arange(batch_size):
     prev = cv2.imread(d['path_prev'].iloc[row],0)
     now = cv2.imread(d['path_now'].iloc[row],0)
     # crop
@@ -49,9 +59,9 @@ def generator(d,batch_size=None):
     prev=cv2.Canny(prev,75,150)
     now=cv2.Canny(now,75,150)
     # compute optical flow
-    img4d[i,] = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-    
-  yield img4d, spd
+    img4d[row,] = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
+    spd[row] = d['spd'].iloc[row]
+  return img4d, spd
 
 def batch_shuffle(d,validation_split=0.2):
   """
@@ -158,23 +168,33 @@ if __name__ == '__main__':
   "end 4]"
   
   "5] suffle train data to create trainnig and validation sets"
-  if True:
+  if False:
     train_data, valid_data = batch_shuffle(d)
   "end 5]"
-    
+  
+  "5.5] dont use generator, but just create a large np array of inputs, and corresponding np array of targets"
+  if True:
+    x, y = generate_np_array(train_data,batch_size=None)
+    xv, yv = generate_np_array(valid_data,batch_size=None)
+    dont_use_generator = True
+  else:
+    dont_use_generator = False
+  "end 5.5]"
+  
   "6] create baseline net"
   if True:
     model = Sequential()
-    model.add(Conv2D(24, 5, 
-                     strides=(5,5),
-                     input_shape=(250,640,2),
-                     data_format='channels_last',
-                     activation='relu'))
-    model.add(Conv2D(36, 5,
-                     strides=(5,5),
-                     data_format='channels_last',
-                     activation='relu'))
-    model.add(Flatten())
+    model.add(Dense(1000, input_shape=(250,640,2), activation='relu', kernel_initializer='normal'))
+#    model.add(Conv2D(24, 5, 
+#                     strides=(5,5),
+#                     input_shape=(250,640,2),
+#                     data_format='channels_last',
+#                     activation='relu'))
+#    model.add(Conv2D(36, 5,
+#                     strides=(5,5),
+#                     data_format='channels_last',
+#                     activation='relu'))
+#    model.add(Flatten())
     model.add(Dense(100, activation='relu', kernel_initializer='normal'))
     model.add(Dense(50, activation='relu', kernel_initializer='normal'))
     #model.add(Dropout(n_dropout))
@@ -183,9 +203,12 @@ if __name__ == '__main__':
   "end 6]"
   
   "7] fit model"
-  if False:
+  if True:
     clbkList = [EarlyStopping(monitor='loss', min_delta=0.4, patience=1, verbose=1)]
-    model.fit_generator(generator(train_data), steps_per_epoch=1, epochs=1, verbose=1,callbacks=clbkList)
+    if dont_use_generator:
+      model.fit(x=x, y=y, epochs=10, verbose=2,callbacks=clbkList, shuffle=False, validation_data=(xv, yv))
+    else:
+      model.fit_generator(generator(train_data), steps_per_epoch=100, epochs=2, verbose=1,callbacks=clbkList)
    
   "8] evaluate model"
   if False:

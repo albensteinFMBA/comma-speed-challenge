@@ -167,6 +167,8 @@ if __name__ == '__main__':
     cv2.destroyAllWindows() 
   "end 2]"
   
+  "3] removed"
+  
   "4] create data frame of file paths to an image, the previous image, and the average speed from each image"
   if False:
     # create
@@ -184,6 +186,8 @@ if __name__ == '__main__':
   "end 5]"
   
   "6] create test network for testing custom layer"
+  "cumtom keas layer with edge detect and optical flow abandoned for doing that processing in the generator"
+  "in a real-time pipeline, edge detect and optical flow would not be processed by the ML model either, so this is consistent with that"
   if False:
     img4d,spd = generator(d,batch_size=1,gen_test_flg=True)
 
@@ -191,9 +195,11 @@ if __name__ == '__main__':
     nowc = now[100:350, :]
     cv2.imshow('CL1', draw_flow(nowc, img4d[0,]))
     
-  "7] create baseline net"
-  if False:
+  "7] suffle train data to create trainnig and validation sets"
+  if True:
     train_data, valid_data = batch_shuffle(d)
+    
+  "8] create baseline net"
   if True:
     model = Sequential()
     model.add(Conv2D(24, 5, 
@@ -212,9 +218,10 @@ if __name__ == '__main__':
     model.add(Dense(1, kernel_initializer='normal'))
     model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy'])
  
-  if True:
+  if False:
     clbkList = [EarlyStopping(monitor='loss', min_delta=0.4, patience=1, verbose=1)]
     model.fit_generator(generator(train_data), steps_per_epoch=1, epochs=1, verbose=1,callbacks=clbkList)
     
   if False:
-    model.evaluate()
+    #evaluate_generator(generator, steps=None, callbacks=None, max_queue_size=10, workers=1, use_multiprocessing=False, verbose=0)
+    model.evaluate_generator(generator(valid_data), steps=None, callbacks=None, max_queue_size=10, workers=1, use_multiprocessing=False, verbose=1)

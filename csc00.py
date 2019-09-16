@@ -3,10 +3,8 @@ import os
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import tensorflow as tf
-from keras.layers import Layer, Input, Conv2D, Lambda, Dense, Flatten
-from keras.models import Model, Sequential
-from keras import backend as K
+from keras.layers import Conv2D, Dense, Flatten
+from keras.models import Sequential
 from keras.callbacks import EarlyStopping, ModelCheckpoint
 
 def create_dframe():
@@ -87,35 +85,6 @@ def draw_flow(img, flow, step=16):
       cv2.circle(vis, (x1, y1), 1, (0, 255, 0), -1)
   return vis
 
-def crop_and_optical_flow(img4d) :
-  results = []
-  now=img4d[0,:,:,0]
-  prev=img4d[0,:,:,1]
-  # crop
-  now=now[100:350, :]
-  prev=prev[100:350, :]
-  
-  #now=cv2.Canny(now,75,150)
-  #prev=cv2.Canny(prev,75,150)
-  
-  rimg3d = cv2.calcOpticalFlowFarneback(prev, now, None, 0.5, 3, 15, 3, 5, 1.2, 0)
-  results.append( np.expand_dims( rimg3d, axis=0 ) )
-  return np.concatenate( results, axis = 0 )
-
-class CustomLayer( Layer ) :
-  def call( self, xin )  :
-    xout = tf.py_func( crop_and_optical_flow, 
-                       [xin],
-                       'float32',
-                       stateful=False,
-                       name='cvOpt')
-    xout = K.stop_gradient( xout ) # explicitly set no grad
-    xout.set_shape( [xin.shape[0], 250, 640, xin.shape[-1]] ) # explicitly set output shape
-    return xout
-  def compute_output_shape( self, sin ) :
-    return ( sin[0], 250, 640, sin[-1] )
-
-
 
 if __name__ == '__main__':
   "1] read, save to npy, and plot the training speed data"
@@ -167,9 +136,7 @@ if __name__ == '__main__':
     cv2.destroyAllWindows() 
   "end 2]"
   
-  "3] removed"
-  
-  "4] create data frame of file paths to an image, the previous image, and the average speed from each image"
+  "3] create data frame of file paths to an image, the previous image, and the average speed from each image"
   if False:
     # create
     d = create_dframe()
@@ -179,27 +146,23 @@ if __name__ == '__main__':
     # load
     d = pd.read_pickle("./df_img_paths_and_spd.pkl")
   
-  "end 4]"
+  "end 3]"
   
-  "5] test cv2_preprocess and image_tensor_func"
-  "removed clutter"
-  "end 5]"
-  
-  "6] create test network for testing custom layer"
-  "cumtom keas layer with edge detect and optical flow abandoned for doing that processing in the generator"
-  "in a real-time pipeline, edge detect and optical flow would not be processed by the ML model either, so this is consistent with that"
+  "4] test generator"
   if False:
     img4d,spd = generator(d,batch_size=1,gen_test_flg=True)
 
     now=cv2.imread(d['path_now'].iloc[0],0)
     nowc = now[100:350, :]
     cv2.imshow('CL1', draw_flow(nowc, img4d[0,]))
-    
-  "7] suffle train data to create trainnig and validation sets"
+  "end 4]"
+  
+  "5] suffle train data to create trainnig and validation sets"
   if True:
     train_data, valid_data = batch_shuffle(d)
+  "end 5]"
     
-  "8] create baseline net"
+  "6] create baseline net"
   if True:
     model = Sequential()
     model.add(Conv2D(24, 5, 
@@ -217,11 +180,14 @@ if __name__ == '__main__':
     #model.add(Dropout(n_dropout))
     model.add(Dense(1, kernel_initializer='normal'))
     model.compile(optimizer='adam', loss='mean_squared_error', metrics=['accuracy'])
- 
+  "end 6]"
+  
+  "7] fit model"
   if False:
     clbkList = [EarlyStopping(monitor='loss', min_delta=0.4, patience=1, verbose=1)]
     model.fit_generator(generator(train_data), steps_per_epoch=1, epochs=1, verbose=1,callbacks=clbkList)
-    
+   
+  "8] evaluate model"
   if False:
     #evaluate_generator(generator, steps=None, callbacks=None, max_queue_size=10, workers=1, use_multiprocessing=False, verbose=0)
     model.evaluate_generator(generator(valid_data), steps=None, callbacks=None, max_queue_size=10, workers=1, use_multiprocessing=False, verbose=1)
